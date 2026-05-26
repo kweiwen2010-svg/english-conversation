@@ -8,7 +8,7 @@ from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
 
 # 1. 網頁基本設定
-st.set_page_config(page_title="AI English Tutor (EC 2.7.1)", page_icon="📱", layout="centered")
+st.set_page_config(page_title="AI English Tutor (EC 2.8)", page_icon="📱", layout="centered")
 load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -32,10 +32,10 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
     ### 📱 狀態說明
-    - **版本：** EC 2.7.1 (Mia 靈魂鎖死版)
-    - **核心優化：** 1. 強制鎖死 AI 名字為 Mia
-      2. 支援中英夾雜智慧翻譯轉錄
-      3. 鍵盤與語音介面新排版
+    - **版本：** EC 2.8 (超感官 Mia 版)
+    - **核心優化：** 1. 聽音大腦升級為 **Gemini 2.5 Pro**，聽力廣度與容錯率大幅超越前代！
+      2. 完美鎖定 Mia 專屬人設。
+      3. 延續中英夾雜智慧翻譯與精簡排版。
     """)
 
 LEVEL_INSTRUCTIONS = {
@@ -102,7 +102,7 @@ if "gemini_chat" not in st.session_state or st.session_state.current_level != le
     })
 
 # 4. 主畫面渲染
-st.title("🎙️ AI English Copilot (EC 2.7.1)")
+st.title("🎙️ AI English Copilot (EC 2.8)")
 st.caption("今天也是與 Mia 自然開口說英文的好日子！")
 st.write("---")
 
@@ -115,7 +115,7 @@ for message in st.session_state.chat_history:
 
 st.write("---")
 
-# 5. 輸入控制區（新版面：垂直緊湊）
+# 5. 輸入控制區
 st.info("💡 提示：講到一半卡住時，直接講中文單字沒關係！Mia 轉錄時會自動幫你變回英文句子。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
@@ -139,11 +139,11 @@ with input_col2:
         key=current_mic_key
     )
 
-# 6. 語音資料處理與中英夾雜智慧翻譯轉錄 Prompt
+# 6. 語音資料處理與中英夾雜智慧翻譯轉錄（升級為 gemini-2.5-pro 高感聽覺）
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
     if audio_bytes:
-        with st.spinner("✨ Mia 正在聆聽並解讀..."):
+        with st.spinner("✨ Mia 正在用 Pro 級聽力認真聆聽..."):
             try:
                 TRANSCRIPTION_PROMPT = """
                 Role: You are an expert Speech-to-Text (STT) translator and simultaneous interpreter. You specialize in transcribing English spoken by non-native speakers (specifically with Taiwanese accents), which may contain mixed Chinese words due to vocabulary blocks.
@@ -153,13 +153,14 @@ if audio_recording and "bytes" in audio_recording:
                 Strict Translation & Transcription Rules:
                 1. INTERPRET MIXED CHINESE WORDS: If the user inserts Chinese words inside an English sentence because they got stuck (e.g., "I want to buy a cup of 咖啡"), automatically TRANSLATE those Chinese words into appropriate English (e.g., "I want to buy a cup of coffee").
                 2. DO NOT fix purely English grammatical or tense errors. (e.g., "Yesterday I go" -> keep "Yesterday I go").
-                3. DO fix phonetic guessing errors caused by accents or minor background noise.
+                3. DO fix phonetic guessing errors caused by accents, light mumbling, or background noise.
                 4. Ignore Taiwanese filler particles at the very end of sentences (e.g., "ah", "la", "ya", "ba"). Drop them.
                 5. Output ONLY the finalized English text. No explanations, no quotation marks.
                 """
 
+                # 關鍵升級：將聽音模型換成強大的 gemini-2.5-pro
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-2.5-pro",
                     contents=[
                         types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
                         TRANSCRIPTION_PROMPT
