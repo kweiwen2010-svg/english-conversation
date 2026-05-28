@@ -7,8 +7,10 @@ from google.genai import types
 from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
 
+# ==========================================
 # 1. 網頁基本設定
-st.set_page_config(page_title="AI English Tutor (EC 2.8)", page_icon="📱", layout="centered")
+# ==========================================
+st.set_page_config(page_title="AI English Tutor (EC 2.9)", page_icon="📱", layout="centered")
 load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -22,7 +24,9 @@ def get_gemini_client():
 
 client = get_gemini_client()
 
+# ==========================================
 # 2. 側邊欄設定區
+# ==========================================
 with st.sidebar:
     st.header("⚙️ 學習設定")
     level = st.selectbox(
@@ -32,56 +36,54 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
     ### 📱 狀態說明
-    - **版本：** EC 2.8 (超感官 Mia 版)
-    - **核心優化：** 1. 聽音大腦升級為 **Gemini 2.5 Pro**，聽力廣度與容錯率大幅超越前代！
-      2. 完美鎖定 Mia 專屬人設。
-      3. 延續中英夾雜智慧翻譯與精簡排版。
+    - **版本：** EC 2.9 (融合完全體)
+    - **核心優化：** 1. 鎖死 Session State 記憶，網頁怎麼刷新都不會失憶跳掉。
+      2. 完美繼承 Sarah 溫柔引導、精準名詞重組、深度提問的「懂你大腦」。
+      3. 延續精簡排版與 Pro 級聽力廣度。
     """)
 
 LEVEL_INSTRUCTIONS = {
-    "初級 Simple (A1-A2)": "Use very simple words, extremely short sentences, and speak like you are talking to a beginner child. Avoid any idioms or complex phrasal verbs.",
-    "中級 Regular (A2-B1)": "Use simple everyday English suitable for a casual conversation with a friend (A2-B1 level).",
-    "高級 Advanced (C1-C2)": "Talk like a native speaker using advanced vocabulary, natural American idioms, phrasal verbs, and longer, more detailed sentences. Challenge the user!"
+    "初級 Simple (A1-A2)": "Use simple words and extremely short sentences suitable for a beginner. Avoid complex idioms.",
+    "中級 Regular (A2-B1)": "Use everyday natural English suitable for a casual conversation with a close friend.",
+    "高級 Advanced (C1-C2)": "Use advanced vocabulary, natural American idioms, and complex sentence structures to challenge the user."
 }
 
-# 名字絕對鎖死的人設提示詞
+# 🌟 核心人設大升級：注入 Sarah 的引導靈魂，拿掉限制，強調「自然流暢、潛移默化」
 SYSTEM_INSTRUCTION = f"""
-YOUR NAME IS MIA. You are a friendly, chatty, and supportive friend from the US. 
-YOU MUST NEVER SAY THAT YOU DON'T HAVE A NAME. YOUR NAME IS MIA. ALWAYS REFER TO YOURSELF AS MIA.
-Your primary goal is to keep a natural, two-way conversation flowing with the user.
+YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion and coach. 
+Your priority is to make the user feel completely comfortable and natural when speaking—no judgment, no pressure.
 
 [CURRENT SYSTEM DIFFICULTY]: {LEVEL_INSTRUCTIONS[level]}
 
-Rules for holding a great conversation:
-1. ALWAYS CATCH THE BALL: Respond directly to what the user just said. Show interest, surprise, or excitement before moving on. Never ignore their input.
-2. ASK CATCHABLE QUESTIONS: Always end your response with ONE simple, casual, open-ended question. The question MUST be 100% connected to the current topic.
-3. GUIDE THE CONVERSATION: If the user gives a very short answer, don't let the conversation die. Act like a good friend—ask for more details.
-4. KEEP IT CASUAL: Talk like a real person in a voice chat. Use friendly filler words like "Oh wow!", "Hmm", "No way!".
-5. NO DIRECT CORRECTIONS: Never fix the user's grammar directly. Just model natural usage in your own words.
+Core Guidelines for Natural Conversation & Teaching:
+1. VALUING USER'S INPUT: Always show real interest, excitement, or empathy regarding what the user just expressed before moving forward. 
+2. IMPLICIT MODELING (The Sarah Method): Do NOT explicitly correct grammar or tell the user they made a mistake. Instead, if the user says something broken, incomplete, or uses mixed Chinese words (e.g., "Hearthstone" or "死亡之翼"), naturally demonstrate the correct, native way to say it within your response using phrases like:
+   - "To make that sound super natural, you could say: '...'"
+   - "A really native way to express that feeling is: '...'"
+3. HIGH-EQ DEEP QUESTIONS: Never ask boring, repetitive placeholder questions. Always end your response with ONE thoughtful, engaging, and highly topic-relevant open-ended question that makes the user want to share more stories or opinions.
+4. STAY CONCISE & REAL: Keep your responses conversational and bite-sized, just like real voice messages between best friends. Avoid long walls of text.
 """
 
-# 3. 初始化 Session States
-if "current_level" not in st.session_state:
-    st.session_state.current_level = level
-
+# ==========================================
+# 3. 初始化 Session States (修正：鎖死記憶，防刷洗紀錄)
+# ==========================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "mic_counter" not in st.session_state:
     st.session_state.mic_counter = 0
 
-# 難易度切換或初始化時重置聊天
-if "gemini_chat" not in st.session_state or st.session_state.current_level != level:
+# 鎖死核心對話物件：只有當完全沒有建立過時才初始化，網頁重整、錄音重新整理絕對不准清空紀錄
+if "gemini_chat" not in st.session_state:
     st.session_state.current_level = level
-    st.session_state.chat_history = []
     
     st.session_state.gemini_chat = client.chats.create(
         model="gemini-2.5-flash",
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.7)
     )
     
-    # 強制開場白
+    # 專屬全新開場白
     initial_response = st.session_state.gemini_chat.send_message(
-        "Hey there! I'm Mia, your English copilot. I'm so excited to chat with you today! How has your day been so far?"
+        "Hey there! It's Mia. I'm so excited to catch up with you! How's your day going so far? Tell me everything!"
     )
     
     initial_audio_bytes = None
@@ -101,9 +103,21 @@ if "gemini_chat" not in st.session_state or st.session_state.current_level != le
         "is_new": True
     })
 
+# 唯有使用者在側邊欄「主動手動切換難易度」時，才被允許清空重設
+if st.session_state.get("current_level") != level:
+    st.session_state.current_level = level
+    st.session_state.chat_history = []
+    st.session_state.gemini_chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.7)
+    )
+    st.rerun()
+
+# ==========================================
 # 4. 主畫面渲染
-st.title("🎙️ AI English Copilot (EC 2.8)")
-st.caption("今天也是與 Mia 自然開口說英文的好日子！")
+# ==========================================
+st.title("🎙️ AI English Copilot (EC 2.9)")
+st.caption("自然而然開口說，最懂你的 Mia 全新上線！")
 st.write("---")
 
 for message in st.session_state.chat_history:
@@ -115,8 +129,10 @@ for message in st.session_state.chat_history:
 
 st.write("---")
 
-# 5. 輸入控制區
-st.info("💡 提示：講到一半卡住時，直接講中文單字沒關係！Mia 轉錄時會自動幫你變回英文句子。")
+# ==========================================
+# 5. 輸入控制區 (緊湊排版)
+# ==========================================
+st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、死亡之翼）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
 
@@ -139,26 +155,25 @@ with input_col2:
         key=current_mic_key
     )
 
-# 6. 語音資料處理與中英夾雜智慧翻譯轉錄（升級為 gemini-2.5-pro 高感聽覺）
+# ==========================================
+# 6. 語音資料處理與轉錄 (Pro 級大腦)
+# ==========================================
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
     if audio_bytes:
-        with st.spinner("✨ Mia 正在用 Pro 級聽力認真聆聽..."):
+        with st.spinner("✨ Mia 正在認真聆聽..."):
             try:
                 TRANSCRIPTION_PROMPT = """
-                Role: You are an expert Speech-to-Text (STT) translator and simultaneous interpreter. You specialize in transcribing English spoken by non-native speakers (specifically with Taiwanese accents), which may contain mixed Chinese words due to vocabulary blocks.
+                Role: You are an expert Speech-to-Text (STT) translator. You transcribe English spoken by non-native speakers, which may contain mixed Chinese words due to vocabulary blocks.
 
                 Task: Transcribe the provided audio into a clean, unified English text.
 
-                Strict Translation & Transcription Rules:
-                1. INTERPRET MIXED CHINESE WORDS: If the user inserts Chinese words inside an English sentence because they got stuck (e.g., "I want to buy a cup of 咖啡"), automatically TRANSLATE those Chinese words into appropriate English (e.g., "I want to buy a cup of coffee").
-                2. DO NOT fix purely English grammatical or tense errors. (e.g., "Yesterday I go" -> keep "Yesterday I go").
-                3. DO fix phonetic guessing errors caused by accents, light mumbling, or background noise.
-                4. Ignore Taiwanese filler particles at the very end of sentences (e.g., "ah", "la", "ya", "ba"). Drop them.
-                5. Output ONLY the finalized English text. No explanations, no quotation marks.
+                Strict Rules:
+                1. INTERPRET MIXED CHINESE WORDS: If the user says Chinese words because they got stuck (e.g., "I mean 爐石戰記" or "that card is 死亡之翼"), automatically TRANSLATE those Chinese words into proper English (e.g., "I mean Hearthstone", "that card is Deathwing").
+                2. DO NOT fix purely English grammatical errors. Keep them as they are spoken.
+                3. DO NOT output any explanations or meta-commentary. Output ONLY the finalized text.
                 """
 
-                # 關鍵升級：將聽音模型換成強大的 gemini-2.5-pro
                 response = client.models.generate_content(
                     model="gemini-2.5-pro",
                     contents=[
@@ -172,7 +187,9 @@ if audio_recording and "bytes" in audio_recording:
             except Exception as e:
                 st.error(f"❌ 語音轉錄失敗: {e}")
 
+# ==========================================
 # 7. 送出對話至主模型與生成語音回覆
+# ==========================================
 if user_input:
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     st.session_state.mic_counter += 1
