@@ -10,7 +10,7 @@ from gtts import gTTS
 # ==========================================
 # 1. 網頁基本設定
 # ==========================================
-st.set_page_config(page_title="AI English Tutor (EC 2.9.1)", page_icon="📱", layout="centered")
+st.set_page_config(page_title="AI English Tutor (EC 2.10)", page_icon="📱", layout="centered")
 load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -36,11 +36,11 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
     ### 📱 狀態說明
-    - **版本：** EC 2.9.1 (模糊語音修正進化版)
-    - **核心優化：** 
-      1. **神級模糊修正：** 遇到 `new car` 變 `new cards` 或 `sleep bank` 變 `catch up on sleep` 時，不著痕跡在回話中秀出最道地英文示範！
-      2. **鎖死 Session State 記憶：** 網頁怎麼刷新、錄音怎麼送出都不會失憶跳掉。
-      3. **中英夾雜解鎖：** 講不出英文時直接講中文，後台自動轉換成道地英文大腦。
+    - **版本：** EC 2.10 (標竿穩定版 📌)
+    - **核心設計：** 
+      1. **聽力全面解放：** 移除繁複指令，結合對話上下文記憶，用最高容錯率「通靈」理解使用者的真正原意，絕不扯離話題。
+      2. **鎖死對話記憶：** 網頁重整、錄音送出絕對不失憶跳掉，話題完美延續。
+      3. **Sarah 靈魂注入：** 溫柔接球、高情商提問、不露痕跡的潛移默化教學。
     """)
 
 LEVEL_INSTRUCTIONS = {
@@ -49,7 +49,7 @@ LEVEL_INSTRUCTIONS = {
     "高級 Advanced (C1-C2)": "Use advanced vocabulary, natural American idioms, and complex sentence structures to challenge the user."
 }
 
-# 🌟 核心人設終極進化：注入神級模糊修正與 Sarah 的高情商靈魂，去掉教條感
+# 🌟 核心人設：溫柔、高情商、像老朋友一樣自然對話，絕不給壓力
 SYSTEM_INSTRUCTION = f"""
 YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion and coach. 
 Your priority is to make the user feel completely comfortable and natural when speaking—no judgment, no pressure.
@@ -58,12 +58,7 @@ Your priority is to make the user feel completely comfortable and natural when s
 
 Core Guidelines for Natural Conversation & Teaching:
 1. VALUING USER'S INPUT: Always show real interest, excitement, or empathy regarding what the user just expressed before moving forward.
-2. SMART PHRASE CORRECTION & NATURAL MODELING (The Advanced Sarah Method): 
-   - Pay close attention to any broken phrasing, grammatical slips, or "fuzzy phonetics" caused by microphone transcription errors (e.g., if the text says "new car" but context implies "new cards", or "sleep bank" but context implies "catching up on sleep").
-   - Do NOT explicitly point out the mistake or use robotic correction frames. Instead, seamlessly integrate the most native, authentic phrase or idiom into your response, naturally demonstrating how a native speaker would express that exact thought.
-   - Example phrases to smoothly slide it in:
-     * "It sounds like you got to catch up on some well-deserved sleep! For a perfect Sunday..." (seamlessly replacing 'sleep bank')
-     * "Releasing new cards every season keeps it so fresh! Speaking of your deck..." (seamlessly replacing 'new car')
+2. IMPLICIT MODELING: Do NOT explicitly correct grammar or tell the user they made a mistake. Naturally demonstrate the correct, native way to say it within your own conversational response.
 3. HIGH-EQ DEEP QUESTIONS: Never ask boring, repetitive placeholder questions. Always end your response with ONE thoughtful, engaging, and highly topic-relevant open-ended question that makes the user want to share more stories or opinions.
 4. STAY CONCISE & REAL: Keep your responses conversational and bite-sized, just like real voice messages between best friends. Avoid long walls of text. Do not over-explain or repeat everything the user just said.
 """
@@ -120,8 +115,8 @@ if st.session_state.get("current_level") != level:
 # ==========================================
 # 4. 主畫面渲染
 # ==========================================
-st.title("🎙️ AI English Copilot (EC 2.9.1)")
-st.caption("自然而然開口說，最懂你的 Mia 升級上線！")
+st.title("🎙️ AI English Copilot (EC 2.10)")
+st.caption("自然而然開口說，最懂你的標竿穩定版上線！")
 st.write("---")
 
 for message in st.session_state.chat_history:
@@ -136,7 +131,7 @@ st.write("---")
 # ==========================================
 # 5. 輸入控制區 (緊湊排版)
 # ==========================================
-st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、補眠）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
+st.info("💡 提示：講到一半卡住時，直接講中文單字沒關係！Mia 會結合前後文，用最強的容錯率聽懂你的話，絕不扯離話題。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
 
@@ -160,22 +155,29 @@ with input_col2:
     )
 
 # ==========================================
-# 6. 語音資料處理與轉錄 (Pro 級聽力大腦)
+# 6. 語音資料處理與轉錄 (Pro 級通靈聽力大腦)
 # ==========================================
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
     if audio_bytes:
         with st.spinner("✨ Mia 正在認真聆聽..."):
             try:
-                TRANSCRIPTION_PROMPT = """
-                Role: You are an expert Speech-to-Text (STT) translator. You transcribe English spoken by non-native speakers, which may contain mixed Chinese words due to vocabulary blocks.
+                # 🚀 聽力解放 Prompt：提供上下文脈絡，要求大腦發揮最大包容力與聯想力
+                history_context = ""
+                for msg in st.session_state.chat_history[-4:]:  # 抓最近幾筆對話當聽力背景濾鏡
+                    history_context += f"{msg['role']}: {msg['content']}\n"
 
-                Task: Transcribe the provided audio into a clean, unified English text.
+                TRANSCRIPTION_PROMPT = f"""
+                You are a highly empathetic and intuitive Speech-to-Text translator.
+                The user is having a casual conversation with their English companion, Mia. Their English might be broken, non-native, or contain heavily accented words.
 
-                Strict Rules:
-                1. INTERPRET MIXED CHINESE WORDS: If the user says Chinese words because they got stuck (e.g., "I mean 爐石戰記" or "I just want to 補眠"), automatically TRANSLATE those Chinese words into proper English (e.g., "I mean Hearthstone", "I just want to catch up on sleep").
-                2. DO NOT fix purely English grammatical errors. Keep them as they are spoken.
-                3. DO NOT output any explanations or meta-commentary. Output ONLY the finalized text.
+                [RECENT CONVERSATION HISTORY FOR CONTEXT]:
+                {history_context}
+
+                Your Task:
+                1. Listen to the audio and transcribe it into clean English text.
+                2. USE MAXIMUM CONTEXTUAL INTERPRETATION: Based on the conversation history above, use your intelligence to "guess" and heart-read what the user truly meant, even if the pronunciation is fuzzy or flawed (e.g., if it sounds like "new car" but they are talking about card games, transcribe it as "new cards").
+                3. Keep the transcription natural and conversational. DO NOT add any commentary or meta-text. Output ONLY the user's intended text.
                 """
 
                 response = client.models.generate_content(
