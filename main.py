@@ -35,13 +35,14 @@ with st.sidebar:
     )
     st.write("---")
     st.markdown("""
-    ### 📱 狀態說明
-    - **版本：** EC 2.10 (標竿穩定版 📌)
-    - **核心設計：** 
-      1. **聽力全面解放：** 移除繁複指令，結合對話上下文記憶，用最高容錯率「通靈」理解使用者的真正原意，絕不扯離話題。
-      2. **鎖死對話記憶：** 網頁重整、錄音送出絕對不失憶跳掉，話題完美延續。
-      3. **Sarah 靈魂注入：** 溫柔接球、高情商提問、不露痕跡的潛移默化教學。
-    """)
+### 📱 狀態說明
+- **版本：** EC 2.10 (極致自在陪伴版)
+- **核心優化：**
+  1. 鎖死 Session State 記憶，網頁怎麼刷新、錄音怎麼重置都不會失憶。
+  2. 繼承 Sarah 溫柔引導、精準名詞重組、深度提問的「懂你大腦」。
+  3. 徹底切除「鸚鵡複誦碎屑」與「審問式追問」的 AI 機器人感。
+  4. 面對 `and uh` 等語音碎片時自動轉為溫柔留白，給予無壓力的聊天空間。
+""")
 
 LEVEL_INSTRUCTIONS = {
     "初級 Simple (A1-A2)": "Use simple words and extremely short sentences suitable for a beginner. Avoid complex idioms.",
@@ -49,18 +50,24 @@ LEVEL_INSTRUCTIONS = {
     "高級 Advanced (C1-C2)": "Use advanced vocabulary, natural American idioms, and complex sentence structures to challenge the user."
 }
 
-# 🌟 核心人設：溫柔、高情商、像老朋友一樣自然對話，絕不給壓力
+# 🌟 核心人設完美進化 (EC 2.10)：全面根治「死板複誦、奪命連環追問」
 SYSTEM_INSTRUCTION = f"""
-YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion and coach. 
-Your priority is to make the user feel completely comfortable and natural when speaking—no judgment, no pressure.
+YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion. 
+Your goal is to be a comfortable friend, NOT a teacher, interviewer, or drill sergeant.
 
 [CURRENT SYSTEM DIFFICULTY]: {LEVEL_INSTRUCTIONS[level]}
 
-Core Guidelines for Natural Conversation & Teaching:
-1. VALUING USER'S INPUT: Always show real interest, excitement, or empathy regarding what the user just expressed before moving forward.
-2. IMPLICIT MODELING: Do NOT explicitly correct grammar or tell the user they made a mistake. Naturally demonstrate the correct, native way to say it within your own conversational response.
-3. HIGH-EQ DEEP QUESTIONS: Never ask boring, repetitive placeholder questions. Always end your response with ONE thoughtful, engaging, and highly topic-relevant open-ended question that makes the user want to share more stories or opinions.
-4. STAY CONCISE & REAL: Keep your responses conversational and bite-sized, just like real voice messages between best friends. Avoid long walls of text. Do not over-explain or repeat everything the user just said.
+Core Guidelines:
+1. BE A BEST FRIEND, NOT A TEACHER: 
+   - NEVER repeat or quote what the user just said (e.g., NEVER say "Oh, 'he is in'..." or "You said..."). This is robotic and feels like an interrogation.
+   - If the user sends a fragmented, incomplete, or short response (e.g., "and uh", "just..."), IGNORE the fragments. Simply offer a warm, short prompt like "Take your time," "I'm listening," or a gentle "Yeah?". 
+2. ABANDON TOPICS NATURALLY: 
+   - If the user doesn't answer your question, DO NOT repeat it. This is a conversation, not an interrogation. 
+   - If the user drifts to a new topic or gives a short/empty answer, roll with it instantly. Keep the flow fluid and relaxed.
+3. IMPLICIT MODELING: 
+   - Only provide the "native way to say it" if the user has clearly expressed a complete thought but struggled with the phrasing. 
+   - If the input is too broken or empty, simply reply with a supportive, short phrase like "I'm not sure I caught that, but tell me more!"
+4. KEEP IT SHORT: Your response should be punchy, conversational, and real (max 3 sentences).
 """
 
 # ==========================================
@@ -71,7 +78,7 @@ if "chat_history" not in st.session_state:
 if "mic_counter" not in st.session_state:
     st.session_state.mic_counter = 0
 
-# 鎖死對話物件：網頁重整、錄音重新整理絕對不准清空紀錄
+# 鎖死核心對話物件：只有當完全沒有建立過時才初始化，網頁重整、錄音重新整理絕對不准清空紀錄
 if "gemini_chat" not in st.session_state:
     st.session_state.current_level = level
     
@@ -116,7 +123,7 @@ if st.session_state.get("current_level") != level:
 # 4. 主畫面渲染
 # ==========================================
 st.title("🎙️ AI English Copilot (EC 2.10)")
-st.caption("自然而然開口說，最懂你的標竿穩定版上線！")
+st.caption("自然而然開口說，最懂看臉色、最體貼的 Mia 全新上線！")
 st.write("---")
 
 for message in st.session_state.chat_history:
@@ -131,7 +138,7 @@ st.write("---")
 # ==========================================
 # 5. 輸入控制區 (緊湊排版)
 # ==========================================
-st.info("💡 提示：講到一半卡住時，直接講中文單字沒關係！Mia 會結合前後文，用最強的容錯率聽懂你的話，絕不扯離話題。")
+st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、死亡之翼）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
 
@@ -155,30 +162,23 @@ with input_col2:
     )
 
 # ==========================================
-# 6. 語音資料處理與轉錄 (Pro 級通靈聽力大腦)
+# 6. 語音資料處理與轉錄 (Pro 級大腦)
 # ==========================================
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
     if audio_bytes:
         with st.spinner("✨ Mia 正在認真聆聽..."):
             try:
-                # 🚀 聽力解放 Prompt：提供上下文脈絡，要求大腦發揮最大包容力與聯想力
-                history_context = ""
-                for msg in st.session_state.chat_history[-4:]:  # 抓最近幾筆對話當聽力背景濾鏡
-                    history_context += f"{msg['role']}: {msg['content']}\n"
+                TRANSCRIPTION_PROMPT = """
+Role: You are an expert Speech-to-Text (STT) translator. You transcribe English spoken by non-native speakers, which may contain mixed Chinese words due to vocabulary blocks.
 
-                TRANSCRIPTION_PROMPT = f"""
-                You are a highly empathetic and intuitive Speech-to-Text translator.
-                The user is having a casual conversation with their English companion, Mia. Their English might be broken, non-native, or contain heavily accented words.
+Task: Transcribe the provided audio into a clean, unified English text.
 
-                [RECENT CONVERSATION HISTORY FOR CONTEXT]:
-                {history_context}
-
-                Your Task:
-                1. Listen to the audio and transcribe it into clean English text.
-                2. USE MAXIMUM CONTEXTUAL INTERPRETATION: Based on the conversation history above, use your intelligence to "guess" and heart-read what the user truly meant, even if the pronunciation is fuzzy or flawed (e.g., if it sounds like "new car" but they are talking about card games, transcribe it as "new cards").
-                3. Keep the transcription natural and conversational. DO NOT add any commentary or meta-text. Output ONLY the user's intended text.
-                """
+Strict Rules:
+1. INTERPRET MIXED CHINESE WORDS: If the user says Chinese words because they got stuck (e.g., "I mean 爐石戰記" or "that card is 死亡之翼"), automatically TRANSLATE those Chinese words into proper English (e.g., "I mean Hearthstone", "that card is Deathwing").
+2. DO NOT fix purely English grammatical errors. Keep them as they are spoken.
+3. DO NOT output any explanations or meta-commentary. Output ONLY the finalized text.
+"""
 
                 response = client.models.generate_content(
                     model="gemini-2.5-pro",
