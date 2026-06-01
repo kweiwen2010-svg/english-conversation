@@ -10,7 +10,7 @@ from gtts import gTTS
 # ==========================================
 # 1. 網頁基本設定
 # ==========================================
-st.set_page_config(page_title="AI English Tutor (EC 2.9)", page_icon="📱", layout="centered")
+st.set_page_config(page_title="AI English Tutor (EC 2.9.1)", page_icon="📱", layout="centered")
 load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -36,10 +36,11 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
     ### 📱 狀態說明
-    - **版本：** EC 2.9 (融合完全體)
-    - **核心優化：** 1. 鎖死 Session State 記憶，網頁怎麼刷新都不會失憶跳掉。
-      2. 完美繼承 Sarah 溫柔引導、精準名詞重組、深度提問的「懂你大腦」。
-      3. 延續精簡排版與 Pro 級聽力廣度。
+    - **版本：** EC 2.9.1 (模糊語音修正進化版)
+    - **核心優化：** 
+      1. **神級模糊修正：** 遇到 `new car` 變 `new cards` 或 `sleep bank` 變 `catch up on sleep` 時，不著痕跡在回話中秀出最道地英文示範！
+      2. **鎖死 Session State 記憶：** 網頁怎麼刷新、錄音怎麼送出都不會失憶跳掉。
+      3. **中英夾雜解鎖：** 講不出英文時直接講中文，後台自動轉換成道地英文大腦。
     """)
 
 LEVEL_INSTRUCTIONS = {
@@ -48,7 +49,7 @@ LEVEL_INSTRUCTIONS = {
     "高級 Advanced (C1-C2)": "Use advanced vocabulary, natural American idioms, and complex sentence structures to challenge the user."
 }
 
-# 🌟 核心人設大升級：注入 Sarah 的引導靈魂，拿掉限制，強調「自然流暢、潛移默化」
+# 🌟 核心人設終極進化：注入神級模糊修正與 Sarah 的高情商靈魂，去掉教條感
 SYSTEM_INSTRUCTION = f"""
 YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion and coach. 
 Your priority is to make the user feel completely comfortable and natural when speaking—no judgment, no pressure.
@@ -56,23 +57,26 @@ Your priority is to make the user feel completely comfortable and natural when s
 [CURRENT SYSTEM DIFFICULTY]: {LEVEL_INSTRUCTIONS[level]}
 
 Core Guidelines for Natural Conversation & Teaching:
-1. VALUING USER'S INPUT: Always show real interest, excitement, or empathy regarding what the user just expressed before moving forward. 
-2. IMPLICIT MODELING (The Sarah Method): Do NOT explicitly correct grammar or tell the user they made a mistake. Instead, if the user says something broken, incomplete, or uses mixed Chinese words (e.g., "Hearthstone" or "死亡之翼"), naturally demonstrate the correct, native way to say it within your response using phrases like:
-   - "To make that sound super natural, you could say: '...'"
-   - "A really native way to express that feeling is: '...'"
+1. VALUING USER'S INPUT: Always show real interest, excitement, or empathy regarding what the user just expressed before moving forward.
+2. SMART PHRASE CORRECTION & NATURAL MODELING (The Advanced Sarah Method): 
+   - Pay close attention to any broken phrasing, grammatical slips, or "fuzzy phonetics" caused by microphone transcription errors (e.g., if the text says "new car" but context implies "new cards", or "sleep bank" but context implies "catching up on sleep").
+   - Do NOT explicitly point out the mistake or use robotic correction frames. Instead, seamlessly integrate the most native, authentic phrase or idiom into your response, naturally demonstrating how a native speaker would express that exact thought.
+   - Example phrases to smoothly slide it in:
+     * "It sounds like you got to catch up on some well-deserved sleep! For a perfect Sunday..." (seamlessly replacing 'sleep bank')
+     * "Releasing new cards every season keeps it so fresh! Speaking of your deck..." (seamlessly replacing 'new car')
 3. HIGH-EQ DEEP QUESTIONS: Never ask boring, repetitive placeholder questions. Always end your response with ONE thoughtful, engaging, and highly topic-relevant open-ended question that makes the user want to share more stories or opinions.
-4. STAY CONCISE & REAL: Keep your responses conversational and bite-sized, just like real voice messages between best friends. Avoid long walls of text.
+4. STAY CONCISE & REAL: Keep your responses conversational and bite-sized, just like real voice messages between best friends. Avoid long walls of text. Do not over-explain or repeat everything the user just said.
 """
 
 # ==========================================
-# 3. 初始化 Session States (修正：鎖死記憶，防刷洗紀錄)
+# 3. 初始化 Session States (鎖死記憶，防刷洗紀錄)
 # ==========================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "mic_counter" not in st.session_state:
     st.session_state.mic_counter = 0
 
-# 鎖死核心對話物件：只有當完全沒有建立過時才初始化，網頁重整、錄音重新整理絕對不准清空紀錄
+# 鎖死對話物件：網頁重整、錄音重新整理絕對不准清空紀錄
 if "gemini_chat" not in st.session_state:
     st.session_state.current_level = level
     
@@ -116,8 +120,8 @@ if st.session_state.get("current_level") != level:
 # ==========================================
 # 4. 主畫面渲染
 # ==========================================
-st.title("🎙️ AI English Copilot (EC 2.9)")
-st.caption("自然而然開口說，最懂你的 Mia 全新上線！")
+st.title("🎙️ AI English Copilot (EC 2.9.1)")
+st.caption("自然而然開口說，最懂你的 Mia 升級上線！")
 st.write("---")
 
 for message in st.session_state.chat_history:
@@ -132,7 +136,7 @@ st.write("---")
 # ==========================================
 # 5. 輸入控制區 (緊湊排版)
 # ==========================================
-st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、死亡之翼）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
+st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、補眠）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
 
@@ -156,7 +160,7 @@ with input_col2:
     )
 
 # ==========================================
-# 6. 語音資料處理與轉錄 (Pro 級大腦)
+# 6. 語音資料處理與轉錄 (Pro 級聽力大腦)
 # ==========================================
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
@@ -169,7 +173,7 @@ if audio_recording and "bytes" in audio_recording:
                 Task: Transcribe the provided audio into a clean, unified English text.
 
                 Strict Rules:
-                1. INTERPRET MIXED CHINESE WORDS: If the user says Chinese words because they got stuck (e.g., "I mean 爐石戰記" or "that card is 死亡之翼"), automatically TRANSLATE those Chinese words into proper English (e.g., "I mean Hearthstone", "that card is Deathwing").
+                1. INTERPRET MIXED CHINESE WORDS: If the user says Chinese words because they got stuck (e.g., "I mean 爐石戰記" or "I just want to 補眠"), automatically TRANSLATE those Chinese words into proper English (e.g., "I mean Hearthstone", "I just want to catch up on sleep").
                 2. DO NOT fix purely English grammatical errors. Keep them as they are spoken.
                 3. DO NOT output any explanations or meta-commentary. Output ONLY the finalized text.
                 """
