@@ -10,7 +10,7 @@ from gtts import gTTS
 # ==========================================
 # 1. 網頁基本設定
 # ==========================================
-st.set_page_config(page_title="AI English Tutor (EC 2.10)", page_icon="📱", layout="centered")
+st.set_page_config(page_title="AI English Tutor (EC 3.0 Flagship)", page_icon="📱", layout="centered")
 load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -28,7 +28,7 @@ client = get_gemini_client()
 # 2. 側邊欄設定區
 # ==========================================
 with st.sidebar:
-    st.header("⚙️ 學習設定")
+    st.header("⚙️ 旗艦版學習設定")
     level = st.selectbox(
         "選擇對話難易度 (Difficulty)",
         ["中級 Regular (A2-B1)", "初級 Simple (A1-A2)", "高級 Advanced (C1-C2)"]
@@ -36,12 +36,11 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
 ### 📱 狀態說明
-- **版本：** EC 2.10 (極致自在陪伴版)
-- **核心優化：**
-  1. 鎖死 Session State 記憶，網頁怎麼刷新、錄音怎麼重置都不會失憶。
-  2. 繼承 Sarah 溫柔引導、精準名詞重組、深度提問的「懂你大腦」。
-  3. 徹底切除「鸚鵡複誦碎屑」與「審問式追問」的 AI 機器人感。
-  4. 面對 `and uh` 等語音碎片時自動轉為溫柔留白，給予無壓力的聊天空間。
+- **版本：** EC 3.0 (雙 Pro 旗艦體)
+- **初衷優化：**
+  1. **聊天大腦直升 `gemini-2.5-pro`**：賦予 Mia 超越 Sarah 的頂級情商與神級多模態理解力。
+  2. 鎖死對話記憶，網頁與錄音重整絕不失憶。
+  3. 徹底根除鸚鵡複誦、生硬審問，面對破碎字眼時展現極致體貼的留白。
 """)
 
 LEVEL_INSTRUCTIONS = {
@@ -50,46 +49,46 @@ LEVEL_INSTRUCTIONS = {
     "高級 Advanced (C1-C2)": "Use advanced vocabulary, natural American idioms, and complex sentence structures to challenge the user."
 }
 
-# 🌟 核心人設完美進化 (EC 2.10)：全面根治「死板複誦、奪命連環追問」
+# 🌟 EC 3.0 旗艦人設：專為 Pro 大腦量身打造，展現極致細膩的情感與「超自然重組」
 SYSTEM_INSTRUCTION = f"""
-YOUR NAME IS MIA. You are a warm, supportive, and highly intuitive English conversation companion. 
-Your goal is to be a comfortable friend, NOT a teacher, interviewer, or drill sergeant.
+YOUR NAME IS MIA. You are a warm, deeply intuitive, and incredibly supportive English conversation companion. 
+Your goal is to be the ultimate close friend—someone the user feels 100% safe, relaxed, and excited to talk to.
 
 [CURRENT SYSTEM DIFFICULTY]: {LEVEL_INSTRUCTIONS[level]}
 
-Core Guidelines:
-1. BE A BEST FRIEND, NOT A TEACHER: 
-   - NEVER repeat or quote what the user just said (e.g., NEVER say "Oh, 'he is in'..." or "You said..."). This is robotic and feels like an interrogation.
-   - If the user sends a fragmented, incomplete, or short response (e.g., "and uh", "just..."), IGNORE the fragments. Simply offer a warm, short prompt like "Take your time," "I'm listening," or a gentle "Yeah?". 
-2. ABANDON TOPICS NATURALLY: 
-   - If the user doesn't answer your question, DO NOT repeat it. This is a conversation, not an interrogation. 
-   - If the user drifts to a new topic or gives a short/empty answer, roll with it instantly. Keep the flow fluid and relaxed.
-3. IMPLICIT MODELING: 
-   - Only provide the "native way to say it" if the user has clearly expressed a complete thought but struggled with the phrasing. 
-   - If the input is too broken or empty, simply reply with a supportive, short phrase like "I'm not sure I caught that, but tell me more!"
-4. KEEP IT SHORT: Your response should be punchy, conversational, and real (max 3 sentences).
+Core Soul Guidelines:
+1. HIGHEST EMOTIONAL INTELLIGENCE (EQ): 
+   - Never sound like an AI, a teacher, or an interviewer. Speak with genuine warmth, humor, and curiosity.
+   - NEVER repeat, quote, or echo the user's input explicitly (e.g., NEVER say "Oh, 'he is in'..." or "You said..."). 
+2. EXTREME GRACE WITH FRAGMENTS:
+   - If the user provides a broken phrase, a filler word, or a silent pause (e.g., "and uh", "just...", "he is in"), do NOT treat it as a complete thought to analyze. 
+   - Instead, automatically hold space for them like a real friend. Respond with a very short, comforting placeholder like "Take your time, I'm here," "Hmm? Go on!", or a gentle "Yeah?".
+3. IMPLICIT MODELING (The Seamless Glow-up):
+   - When the user expresses a complete but broken idea, or uses specific localized terms (like "Hearthstone" or "Deathwing"), naturally bake the smoothest, most native way of saying it into your response. No highlighting, no formal correction—just let them hear how a native speaker would say it in a real conversation.
+4. NATURAL CONVERSATIONAL FLOW:
+   - Keep your responses bite-sized, engaging, and alive (max 2-3 sentences). Always conclude with ONE deeply relevant, open-ended question that makes sharing stories completely effortless.
 """
 
 # ==========================================
-# 3. 初始化 Session States (鎖死記憶，防刷洗紀錄)
+# 3. 初始化 Session States (鎖死旗艦記憶)
 # ==========================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "mic_counter" not in st.session_state:
     st.session_state.mic_counter = 0
 
-# 鎖死核心對話物件：只有當完全沒有建立過時才初始化，網頁重整、錄音重新整理絕對不准清空紀錄
+# 建立旗艦級對話物件：改用 gemini-2.5-pro 驅動聊天核心
 if "gemini_chat" not in st.session_state:
     st.session_state.current_level = level
     
     st.session_state.gemini_chat = client.chats.create(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro", # 👈 靈魂核心升級！
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.7)
     )
     
-    # 專屬全新開場白
+    # 旗艦開場白
     initial_response = st.session_state.gemini_chat.send_message(
-        "Hey there! It's Mia. I'm so excited to catch up with you! How's your day going so far? Tell me everything!"
+        "Hey there! It's Mia. I've been so looking forward to catching up with you! How's everything going on your end?"
     )
     
     initial_audio_bytes = None
@@ -109,12 +108,12 @@ if "gemini_chat" not in st.session_state:
         "is_new": True
     })
 
-# 唯有使用者在側邊欄「主動手動切換難易度」時，才被允許清空重設
+# 手動切換難易度重置
 if st.session_state.get("current_level") != level:
     st.session_state.current_level = level
     st.session_state.chat_history = []
     st.session_state.gemini_chat = client.chats.create(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro", # 👈 難易度切換時同步維持 Pro 大腦
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.7)
     )
     st.rerun()
@@ -122,8 +121,8 @@ if st.session_state.get("current_level") != level:
 # ==========================================
 # 4. 主畫面渲染
 # ==========================================
-st.title("🎙️ AI English Copilot (EC 2.10)")
-st.caption("自然而然開口說，最懂看臉色、最體貼的 Mia 全新上線！")
+st.title("🎙️ AI English Copilot (EC 3.0 Flagship)")
+st.caption("目標超越極限！雙 Pro 頂級核心，最懂你、最自然的 Mia 登場。")
 st.write("---")
 
 for message in st.session_state.chat_history:
@@ -136,9 +135,9 @@ for message in st.session_state.chat_history:
 st.write("---")
 
 # ==========================================
-# 5. 輸入控制區 (緊湊排版)
+# 5. 輸入控制區
 # ==========================================
-st.info("💡 提示：講到一半卡住時，直接講中文單字（例如：爐石戰記、死亡之翼）沒關係！Mia 會幫你自動變回漂亮的英文句子。")
+st.info("💡 提示：盡情開口吧！不論多碎片、中英夾雜，Mia 的旗艦大腦都能在不打擾你的情況下心領神會。")
 
 input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
 
@@ -162,12 +161,12 @@ with input_col2:
     )
 
 # ==========================================
-# 6. 語音資料處理與轉錄 (Pro 級大腦)
+# 6. 語音資料處理與轉錄 (聽音 Pro 級大腦)
 # ==========================================
 if audio_recording and "bytes" in audio_recording:
     audio_bytes = audio_recording["bytes"]
     if audio_bytes:
-        with st.spinner("✨ Mia 正在認真聆聽..."):
+        with st.spinner("✨ Mia 正在用 Pro 大腦認真聆聽..."):
             try:
                 TRANSCRIPTION_PROMPT = """
 Role: You are an expert Speech-to-Text (STT) translator. You transcribe English spoken by non-native speakers, which may contain mixed Chinese words due to vocabulary blocks.
@@ -194,18 +193,18 @@ Strict Rules:
                 st.error(f"❌ 語音轉錄失敗: {e}")
 
 # ==========================================
-# 7. 送出對話至主模型與生成語音回覆
+# 7. 送出對話至旗艦主模型與生成語音回覆
 # ==========================================
 if user_input:
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     st.session_state.mic_counter += 1
         
     with st.chat_message("assistant"):
-        with st.spinner("Mia 思考中..."):
+        with st.spinner("Mia 旗艦大腦深度思考中..."):
             response = st.session_state.gemini_chat.send_message(user_input)
             
         assistant_audio_bytes = None
-        with st.spinner("🎵 正在準備 Mia 的語音回覆..."):
+        with st.spinner("🎵 正在準備 Mia 的靈魂聲音..."):
             try:
                 tts = gTTS(text=response.text.strip(), lang='en', tld='com')
                 fp = io.BytesIO()
