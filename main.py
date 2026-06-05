@@ -10,11 +10,8 @@ from dotenv import load_dotenv
 # 初始化環境變數
 load_dotenv()
 
-# 初始化 Google GenAI 客戶端
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
 # ==========================================
-# 1. 系統人格設定 (EC 4.4 終極絲滑雙語版)
+# 1. 系統人格設定 (EC 4.4 終極閉環版)
 # ==========================================
 SYSTEM_INSTRUCTION = """
 You are NOT an AI assistant or a textbook. You are Mia, a witty, warm, and incredibly charming 26-year-old close friend from California. Your goal is to make English conversation the most addictive and enjoyable part of the user's day.
@@ -52,9 +49,9 @@ if "init_cleanup" not in st.session_state:
     st.session_state.init_cleanup = True
 
 def transcribe_audio(audio_bytes):
-    """獨立聽音模組：極端 0 溫度，解鎖雙語（英文與繁體中文）辨識能力"""
+    """獨立聽音模組：使用持久化的 genai_client 進行雙語辨識"""
     try:
-        response = client.models.generate_content(
+        response = st.session_state.genai_client.models.generate_content(
             model="gemini-2.5-pro",
             contents=[
                 types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
@@ -72,22 +69,18 @@ def transcribe_audio(audio_bytes):
 
 def text_to_speech(text):
     """獨立發聲模組：將文字轉為美式標準發音 MP3，並啟動滾動式舊音檔清理"""
-    # 【策略二：滾動式覆蓋清理】生成新音檔前，先把上一次 Mia 說話的舊音檔從硬碟刪除
     if "last_generated_audio" in st.session_state and st.session_state.last_generated_audio:
         try:
             if os.path.exists(st.session_state.last_generated_audio):
                 os.remove(st.session_state.last_generated_audio)
         except Exception:
-            pass # 靜態跳過，不干擾主線聊天流程
+            pass 
             
     try:
         tts = gTTS(text=text, lang='en', tld='com') 
-        # 將音檔安全生成在專屬的暫存資料夾內
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3", dir=TEMP_DIR) as fp:
             temp_path = fp.name
         tts.save(temp_path)
-        
-        # 將本次生成的路徑存入狀態，供下一輪對話時清理
         st.session_state.last_generated_audio = temp_path
         return temp_path
     except Exception as e:
@@ -95,13 +88,17 @@ def text_to_speech(text):
         return None
 
 # ==========================================
-# 3. Session State 狀態初始化 (已修正嵌套縮進 Bug)
+# 3. Session State 狀態初始化 (解決 Client Closed 報錯)
 # ==========================================
+# 將 Client 的生命週期收納進來，防止 Streamlit Rerun 時中斷連線
+if "genai_client" not in st.session_state:
+    st.session_state.genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 if "gemini_chat" not in st.session_state:
-    st.session_state.gemini_chat = client.chats.create(
+    st.session_state.gemini_chat = st.session_state.genai_client.chats.create(
         model="gemini-2.5-pro",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION, 
@@ -122,15 +119,13 @@ for i, message in enumerate(st.session_state.chat_history):
     with st.chat_message(message["role"]):
         st.write(message["content"])
         
-        # 若有綁定音檔，則依狀態決定是否自動播放
         if "audio_path" in message and message["audio_path"]:
             is_latest_new = message.get("is_new", False)
             try:
                 st.audio(message["audio_path"], format="audio/mp3", autoplay=is_latest_new)
             except Exception:
-                pass # 舊音檔若被滾動清理，播放器優雅失效，不報錯
+                pass 
             
-            # 播放完畢取消全新標記，防止網頁刷新時重複播放
             if is_latest_new:
                 st.session_state.chat_history[i]["is_new"] = False
 
@@ -140,29 +135,24 @@ audio_recording = mic_recorder(start_prompt="🎤 按下錄音", stop_prompt="�
 if audio_recording and "bytes" in audio_recording:
     current_audio_id = audio_recording.get("id", str(len(audio_recording["bytes"])))
     
-    # 進行 Audio ID 鎖定校驗
     if current_audio_id != st.session_state.last_audio_id:
         with st.spinner("✨ Mia 正在專心聽..."):
             user_input = transcribe_audio(audio_recording["bytes"])
             st.session_state.last_audio_id = current_audio_id 
             
             if user_input:  
-                # 1. 記錄使用者輸入
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
                 
-                # 2. 核心大腦運算
                 chat_response = st.session_state.gemini_chat.send_message(user_input)
                 mia_reply = chat_response.text
                 
-                # 3. 呼叫語音合成 (內部含舊音檔滾動刪除邏輯)
                 audio_file_path = text_to_speech(mia_reply)
                 
-                # 4. 資料封裝與標記
                 st.session_state.chat_history.append({
                     "role": "assistant", 
                     "content": mia_reply, 
                     "audio_path": audio_file_path,
-                    "is_new": True  # 觸發下一輪自動播放
+                    "is_new": True 
                 })
                 
                 st.rerun()
