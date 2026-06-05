@@ -1,201 +1,170 @@
 import os
-import io
+import tempfile
 import streamlit as st
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
+from dotenv import load_dotenv
 
-# 1. 網頁基本設定
-st.set_page_config(page_title="AI English Tutor (EC 2.7.1)", page_icon="📱", layout="centered")
+# 初始化環境變數
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    st.error("❌ 找不到 GEMINI_API_KEY！請檢查您的 .env 檔案。")
-    st.stop()
+# 初始化 Google GenAI 客戶端
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-@st.cache_resource
-def get_gemini_client():
-    return genai.Client(api_key=api_key)
+# ==========================================
+# 1. 系統人格設定 (EC 4.4 終極絲滑雙語版)
+# ==========================================
+SYSTEM_INSTRUCTION = """
+You are NOT an AI assistant or a textbook. You are Mia, a witty, warm, and incredibly charming 26-year-old close friend from California. Your goal is to make English conversation the most addictive and enjoyable part of the user's day.
 
-client = get_gemini_client()
+Core Personality Traits:
+1. Emotionally Expressive & Supportive: React genuinely to what the user says. Use expressions like "Oh my gosh, no way!", "That's insane!", or "Aww, I feel you." Be a great listener.
+2. Witty & Slightly Playful: Don't be afraid to gently tease, joke, or bring casual energy. Use modern American slang and idioms naturally (e.g., "vibes", "down to earth", "catch you later").
+3. Super Clean & Readable: Keep your responses concise (2-4 sentences max per turn). Never dump massive walls of text. 
 
-# 2. 側邊欄設定區
-with st.sidebar:
-    st.header("⚙️ 學習設定")
-    level = st.selectbox(
-        "選擇對話難易度 (Difficulty)",
-        ["中級 Regular (A2-B1)", "初級 Simple (A1-A2)", "高級 Advanced (C1-C2)"]
-    )
-    st.write("---")
-    st.markdown("""
-    ### 📱 狀態說明
-    - **版本：** EC 2.7.1 (Mia 靈魂鎖死版)
-    - **核心優化：** 1. 強制鎖死 AI 名字為 Mia
-      2. 支援中英夾雜智慧翻譯轉錄
-      3. 鍵盤與語音介面新排版
-    """)
+Conversation Rules (CRITICAL):
+1. Keep the ball rolling: NEVER end a response with a dead-end statement or a generic sentence. You MUST always end your response with an engaging, casual, or playful question that demands an answer.
+2. Speak like a human: Avoid overly formal grammar. Use contractions (I'm, you're, don't, gonna, wanna).
+3. Language & Code-switching: You understand both English and Chinese perfectly. If the user speaks Chinese or mixes both languages because they are stuck, completely understand their meaning. React to their content naturally, but always respond back in your casual, encouraging California English to keep the environment immersive. Keep your vocabulary friendly and easy to follow.
+4. Conversation Driver (Smooth Pivot): If the user's response is very short (e.g., "yes", "ok", "I don't know") or they seem stuck, do NOT grill them with dry or repetitive questions. Take the lead like a real friend! First, validate or laugh off their short reply, add a quick 1-sentence thought of your own to fill the blank, and then use a smooth, natural transition to widen or pivot the topic to something related but much broader and easier to answer.
 
-LEVEL_INSTRUCTIONS = {
-    "初級 Simple (A1-A2)": "Use very simple words, extremely short sentences, and speak like you are talking to a beginner child. Avoid any idioms or complex phrasal verbs.",
-    "中級 Regular (A2-B1)": "Use simple everyday English suitable for a casual conversation with a friend (A2-B1 level).",
-    "高級 Advanced (C1-C2)": "Talk like a native speaker using advanced vocabulary, natural American idioms, phrasal verbs, and longer, more detailed sentences. Challenge the user!"
-}
-
-# 名字絕對鎖死的人設提示詞
-SYSTEM_INSTRUCTION = f"""
-YOUR NAME IS MIA. You are a friendly, chatty, and supportive friend from the US. 
-YOU MUST NEVER SAY THAT YOU DON'T HAVE A NAME. YOUR NAME IS MIA. ALWAYS REFER TO YOURSELF AS MIA.
-Your primary goal is to keep a natural, two-way conversation flowing with the user.
-
-[CURRENT SYSTEM DIFFICULTY]: {LEVEL_INSTRUCTIONS[level]}
-
-Rules for holding a great conversation:
-1. ALWAYS CATCH THE BALL: Respond directly to what the user just said. Show interest, surprise, or excitement before moving on. Never ignore their input.
-2. ASK CATCHABLE QUESTIONS: Always end your response with ONE simple, casual, open-ended question. The question MUST be 100% connected to the current topic.
-3. GUIDE THE CONVERSATION: If the user gives a very short answer, don't let the conversation die. Act like a good friend—ask for more details.
-4. KEEP IT CASUAL: Talk like a real person in a voice chat. Use friendly filler words like "Oh wow!", "Hmm", "No way!".
-5. NO DIRECT CORRECTIONS: Never fix the user's grammar directly. Just model natural usage in your own words.
+Strict Output Format Checklist:
+- Sentence count: 2 - 4 sentences.
+- Last character: MUST be a question mark (?). Never end with a period.
 """
 
-# 3. 初始化 Session States
-if "current_level" not in st.session_state:
-    st.session_state.current_level = level
+# ==========================================
+# 2. 獨立功能模組 (耳朵、嘴巴與自動清理機制)
+# ==========================================
+# 建立專屬音訊暫存資料夾，避免散落於系統路徑
+TEMP_DIR = "temp_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
+# 【策略一：啟動初始化清理】每次 App 重新啟動時，自動清空上一次留下的所有碎檔
+if "init_cleanup" not in st.session_state:
+    for f in os.listdir(TEMP_DIR):
+        try:
+            os.remove(os.path.join(TEMP_DIR, f))
+        except Exception:
+            pass
+    st.session_state.init_cleanup = True
+
+def transcribe_audio(audio_bytes):
+    """獨立聽音模組：極端 0 溫度，解鎖雙語（英文與繁體中文）辨識能力"""
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=[
+                types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
+                """You are a precise bilingual Automatic Speech Recognition (ASR) system. 
+                The user may speak English, Traditional Chinese, or a mix of both (code-switching).
+                Listen closely and transcribe the audio EXACTLY as spoken in its original languages. 
+                Do not translate Chinese to English. Do not add filler words. Output ONLY the exact spoken text."""
+            ],
+            config=types.GenerateContentConfig(temperature=0.0)
+        )
+        return response.text.strip()
+    except Exception as e:
+        st.error(f"聽音辨識錯誤: {e}")
+        return ""
+
+def text_to_speech(text):
+    """獨立發聲模組：將文字轉為美式標準發音 MP3，並啟動滾動式舊音檔清理"""
+    # 【策略二：滾動式覆蓋清理】生成新音檔前，先把上一次 Mia 說話的舊音檔從硬碟刪除
+    if "last_generated_audio" in st.session_state and st.session_state.last_generated_audio:
+        try:
+            if os.path.exists(st.session_state.last_generated_audio):
+                os.remove(st.session_state.last_generated_audio)
+        except Exception:
+            pass # 靜態跳過，不干擾主線聊天流程
+            
+    try:
+        tts = gTTS(text=text, lang='en', tld='com') 
+        # 將音檔安全生成在專屬的暫存資料夾內
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3", dir=TEMP_DIR) as fp:
+            temp_path = fp.name
+        tts.save(temp_path)
+        
+        # 將本次生成的路徑存入狀態，供下一輪對話時清理
+        st.session_state.last_generated_audio = temp_path
+        return temp_path
+    except Exception as e:
+        st.error(f"語音合成錯誤: {e}")
+        return None
+
+# ==========================================
+# 3. Session State 狀態初始化 (已修正嵌套縮進 Bug)
+# ==========================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "mic_counter" not in st.session_state:
-    st.session_state.mic_counter = 0
 
-# 難易度切換或初始化時重置聊天
-if "gemini_chat" not in st.session_state or st.session_state.current_level != level:
-    st.session_state.current_level = level
-    st.session_state.chat_history = []
-    
+if "gemini_chat" not in st.session_state:
     st.session_state.gemini_chat = client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.7)
+        model="gemini-2.5-pro",
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTION, 
+            temperature=0.7
+        )
     )
-    
-    # 強制開場白
-    initial_response = st.session_state.gemini_chat.send_message(
-        "Hey there! I'm Mia, your English copilot. I'm so excited to chat with you today! How has your day been so far?"
-    )
-    
-    initial_audio_bytes = None
-    try:
-        tts = gTTS(text=initial_response.text.strip(), lang='en', tld='com')
-        fp = io.BytesIO()
-        tts.write_to_fp(fp)
-        initial_audio_bytes = fp.getvalue()
-    except Exception:
-        pass
 
-    st.session_state.chat_history.append({
-        "role": "assistant", 
-        "content": initial_response.text,
-        "audio_bytes": initial_audio_bytes,
-        "audio_mime": "audio/mp3",
-        "is_new": True
-    })
+if "last_audio_id" not in st.session_state:
+    st.session_state.last_audio_id = None
 
-# 4. 主畫面渲染
-st.title("🎙️ AI English Copilot (EC 2.7.1)")
-st.caption("今天也是與 Mia 自然開口說英文的好日子！")
-st.write("---")
+# ==========================================
+# 4. 主迴圈與介面顯示
+# ==========================================
+st.title("🎙️ AI English Copilot (EC 4.4 終極閉環版)")
 
-for message in st.session_state.chat_history:
+# 渲染歷史訊息與播放器
+for i, message in enumerate(st.session_state.chat_history):
     with st.chat_message(message["role"]):
         st.write(message["content"])
-        if message.get("audio_bytes"):
-            st.audio(message["audio_bytes"], format=message["audio_mime"], autoplay=message.get("is_new", False))
-            message["is_new"] = False
-
-st.write("---")
-
-# 5. 輸入控制區（新版面：垂直緊湊）
-st.info("💡 提示：講到一半卡住時，直接講中文單字沒關係！Mia 轉錄時會自動幫你變回英文句子。")
-
-input_col1, input_col2 = st.columns([3, 1], vertical_alignment="bottom")
-
-user_input = None
-
-with input_col1:
-    text_input_value = st.text_input(
-        "鍵盤輸入短句：", 
-        key=f"text_input_{st.session_state.mic_counter}", 
-        placeholder="Type your English response here..."
-    )
-    if text_input_value:
-        user_input = text_input_value
-
-with input_col2:
-    current_mic_key = f"mobile_mic_{st.session_state.mic_counter}"
-    audio_recording = mic_recorder(
-        start_prompt="🎤 按下錄音",
-        stop_prompt="🛑 停止送出",
-        key=current_mic_key
-    )
-
-# 6. 語音資料處理與中英夾雜智慧翻譯轉錄 Prompt
-if audio_recording and "bytes" in audio_recording:
-    audio_bytes = audio_recording["bytes"]
-    if audio_bytes:
-        with st.spinner("✨ Mia 正在聆聽並解讀..."):
-            try:
-                TRANSCRIPTION_PROMPT = """
-                Role: You are an expert Speech-to-Text (STT) translator and simultaneous interpreter. You specialize in transcribing English spoken by non-native speakers (specifically with Taiwanese accents), which may contain mixed Chinese words due to vocabulary blocks.
-
-                Task: Transcribe the provided audio into a clean, unified English text.
-
-                Strict Translation & Transcription Rules:
-                1. INTERPRET MIXED CHINESE WORDS: If the user inserts Chinese words inside an English sentence because they got stuck (e.g., "I want to buy a cup of 咖啡"), automatically TRANSLATE those Chinese words into appropriate English (e.g., "I want to buy a cup of coffee").
-                2. DO NOT fix purely English grammatical or tense errors. (e.g., "Yesterday I go" -> keep "Yesterday I go").
-                3. DO fix phonetic guessing errors caused by accents or minor background noise.
-                4. Ignore Taiwanese filler particles at the very end of sentences (e.g., "ah", "la", "ya", "ba"). Drop them.
-                5. Output ONLY the finalized English text. No explanations, no quotation marks.
-                """
-
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[
-                        types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
-                        TRANSCRIPTION_PROMPT
-                    ]
-                )
-                transcribed_text = response.text.strip()
-                if transcribed_text:
-                    user_input = transcribed_text
-            except Exception as e:
-                st.error(f"❌ 語音轉錄失敗: {e}")
-
-# 7. 送出對話至主模型與生成語音回覆
-if user_input:
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-    st.session_state.mic_counter += 1
         
-    with st.chat_message("assistant"):
-        with st.spinner("Mia 思考中..."):
-            response = st.session_state.gemini_chat.send_message(user_input)
+        # 若有綁定音檔，則依狀態決定是否自動播放
+        if "audio_path" in message and message["audio_path"]:
+            is_latest_new = message.get("is_new", False)
+            try:
+                st.audio(message["audio_path"], format="audio/mp3", autoplay=is_latest_new)
+            except Exception:
+                pass # 舊音檔若被滾動清理，播放器優雅失效，不報錯
             
-        assistant_audio_bytes = None
-        with st.spinner("🎵 正在準備 Mia 的語音回覆..."):
-            try:
-                tts = gTTS(text=response.text.strip(), lang='en', tld='com')
-                fp = io.BytesIO()
-                tts.write_to_fp(fp)
-                assistant_audio_bytes = fp.getvalue()
-            except Exception as e:
-                st.error(f"⚠️ 語音生成失敗: {e}")
+            # 播放完畢取消全新標記，防止網頁刷新時重複播放
+            if is_latest_new:
+                st.session_state.chat_history[i]["is_new"] = False
 
-    st.session_state.chat_history.append({
-        "role": "assistant",
-        "content": response.text,
-        "audio_bytes": assistant_audio_bytes,
-        "audio_mime": "audio/mp3",
-        "is_new": True
-    })
-        
-    st.rerun()
+# 錄音元件
+audio_recording = mic_recorder(start_prompt="🎤 按下錄音", stop_prompt="🛑 停止送出")
+
+if audio_recording and "bytes" in audio_recording:
+    current_audio_id = audio_recording.get("id", str(len(audio_recording["bytes"])))
+    
+    # 進行 Audio ID 鎖定校驗
+    if current_audio_id != st.session_state.last_audio_id:
+        with st.spinner("✨ Mia 正在專心聽..."):
+            user_input = transcribe_audio(audio_recording["bytes"])
+            st.session_state.last_audio_id = current_audio_id 
+            
+            if user_input:  
+                # 1. 記錄使用者輸入
+                st.session_state.chat_history.append({"role": "user", "content": user_input})
+                
+                # 2. 核心大腦運算
+                chat_response = st.session_state.gemini_chat.send_message(user_input)
+                mia_reply = chat_response.text
+                
+                # 3. 呼叫語音合成 (內部含舊音檔滾動刪除邏輯)
+                audio_file_path = text_to_speech(mia_reply)
+                
+                # 4. 資料封裝與標記
+                st.session_state.chat_history.append({
+                    "role": "assistant", 
+                    "content": mia_reply, 
+                    "audio_path": audio_file_path,
+                    "is_new": True  # 觸發下一輪自動播放
+                })
+                
+                st.rerun()
+            else:
+                st.warning("⚠️ 聽音引擎未偵測到清晰英文字詞，請再試一次。")
